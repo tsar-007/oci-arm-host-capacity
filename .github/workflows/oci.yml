@@ -1,0 +1,43 @@
+name: Run OCI Script
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  run-script:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup PHP Environment
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+
+      - name: Install Project Dependencies
+        run: composer install --prefer-dist --no-progress
+
+      - name: Create Configuration File
+        run: |
+          cat <<EOF > .env
+          OCI_REGION="ap-singapore-1"
+          OCI_USER_ID="${{ secrets.OCI_USER_ID }}"
+          OCI_TENANCY_ID="${{ secrets.OCI_TENANCY_ID }}"
+          OCI_KEY_FINGERPRINT="${{ secrets.OCI_KEY_FINGERPRINT }}"
+          OCI_COMPARTMENT_ID="${{ secrets.OCI_COMPARTMENT_ID }}"
+          OCI_SHAPE="VM.Standard.A1.Flex"
+          OCI_OCPUS=4
+          OCI_MEMORY_IN_GBS=24
+          EOF
+
+      - name: Save Private Key File
+        run: |
+          echo "${{ secrets.OCI_PRIVATE_KEY }}" > oracle_private_key.pem
+          chmod 600 oracle_private_key.pem
+          echo "OCI_PRIVATE_KEY_FILENAME=\"oracle_private_key.pem\"" >> .env
+
+      - name: Force Run Oracle Script
+        run: php index.php
